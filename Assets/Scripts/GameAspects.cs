@@ -14,12 +14,33 @@ public class GameAspects : MonoBehaviour
     private string experiencePointsFormat = "{0}/10";
     private string levelFormal = "L{0}";
 
+    private void Start()
+    {
+        SetHeartsAndEperiense();
+    }
+
+    private void SetHeartsAndEperiense()
+    {
+        for (int i = 0; i < DataHolder.mainCharacterHealth; i++)
+        {
+            hearts[i].SetActive(true);
+        }
+
+        for (int i = 4; i < 4 - DataHolder.mainCharacterHealth; i--)
+        {
+            emptyHearts[i].SetActive(true);
+        }
+
+        experiencePointsText.text = String.Format(experiencePointsFormat, DataHolder.mainCharacterExperiencePoints);
+        levelText.text = String.Format(levelFormal, DataHolder.mainCharacterLevel);
+    }
+
     public void AddHeart()
     {
         if(DataHolder.mainCharacterHealth < 5)
         {
-            hearts[DataHolder.mainCharacterHealth - 1].SetActive(true);
-            emptyHearts[DataHolder.mainCharacterHealth - 1].SetActive(false);
+            hearts[DataHolder.mainCharacterHealth].SetActive(true);
+            emptyHearts[DataHolder.mainCharacterHealth].SetActive(false);
         }
     }
 

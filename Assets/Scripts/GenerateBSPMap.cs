@@ -55,6 +55,8 @@ public class GenerateBSPMap : MonoBehaviour
         //Room room = new Room(0, 0, 11, 8, 1, ref emptyRooms, hall1, hall2);
         //room.RoomDrawing(ground1, wall1);
 
+        DataHolder.sceneNumber = 2;
+
         emptyRooms = new GameObject("Rooms");
         emptyHalls = new GameObject("Halls");
         emptyMainCharacter = new GameObject("MainCharacter");

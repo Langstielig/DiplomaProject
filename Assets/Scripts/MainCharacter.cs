@@ -11,14 +11,15 @@ public class MainCharacter : MonoBehaviour
 
     private CharacterController characterController;
     private Animator animator;
+    private int currentLevel = 1;
     private int damage = 1;
-    private bool isTab = false;
-    private bool isEsc = false;
+
+    private EnemyBehavior closeEnemyBehavior = null;
+    private ChestBehavior closeChestBehavior = null;
+    private GameObject ladder = null;
 
     [SerializeField] private Camera firstPersonCamera;
     [SerializeField] private Camera thirdPersonCamera;
-
-    [SerializeField] private UnityEvent OnLadderEnter;
 
     private void Awake()
     {
@@ -41,42 +42,47 @@ public class MainCharacter : MonoBehaviour
         Vector3 startPosition = transform.position;
         startPosition.y = 0;
         characterController.Move(startPosition);
-        DataHolder.mainCharacterHealth = 5;
-        DataHolder.mainCharacterExperiencePoints = 0;
-        DataHolder.mainCharacterLevel = 1;
-    }
-
-    void Update()
-    {
-        if (SceneManager.GetActiveScene().name != "ChooseCharacter")
-        {
-            ChangeAnimation();
-            ChangeCamera();
-        }
     }
 
     private void FixedUpdate()
     {
         if (SceneManager.GetActiveScene().name != "ChooseCharacter")
         {
-            isTab = CheckTabButton(isTab);
-            isEsc = CheckEscBatton(isEsc);
-            if (!isTab && !isEsc)
+            GameObject intentory = GameObject.FindGameObjectWithTag("Inventory");
+            Inventory inventoryBehavior = intentory.GetComponent<Inventory>();
+
+            GameObject pauseMenu = GameObject.FindGameObjectWithTag("PauseMenu");
+            PauseMenuScript pauseMenuBehavior = pauseMenu.GetComponent<PauseMenuScript>();
+
+            if (!inventoryBehavior.isOpen && !pauseMenuBehavior.isOpen)
             {
                 Move();
+                ChangeAnimation();
+                ChangeCamera();
+                Hit();
+                InteractWithObject();
+            }
+
+            if(DataHolder.mainCharacterHealth == 0)
+            {
+                Defeate();
+            }
+
+            if(DataHolder.mainCharacterLevel != currentLevel)
+            {
+                LevelUp();
             }
         }
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        if(other.gameObject.tag == "Enemy" && !Input.GetMouseButton(1))
+        if(other.gameObject.tag == "Enemy")
         {
-            GameObject gameAspects = GameObject.FindGameObjectWithTag("GameAspects");
-            if (gameAspects != null)
+            closeEnemyBehavior = other.GetComponent<EnemyBehavior>();
+            if (!Input.GetMouseButton(1))
             {
-                GameAspects gameAspectsBehavior = gameAspects.GetComponent<GameAspects>();
-                gameAspectsBehavior.RemoveHeart();
+                Invoke("GetHit", 1);
             }
         }
 
@@ -91,56 +97,33 @@ public class MainCharacter : MonoBehaviour
                 inventoryBehavior.AddPotion();
             }
         }
-    }
 
-    private void OnTriggerStay(Collider other)
-    {
-        if(other.gameObject.tag == "Enemy" && Input.GetMouseButtonDown(0))
+        if (other.gameObject.tag == "Chest")
         {
-            EnemyBehavior enemy = other.gameObject.GetComponent<EnemyBehavior>();
-            if(enemy != null)
-            {
-                enemy.ChangeToHitAnimation();
-                enemy.GetHit(damage);
-            }
+            closeChestBehavior = other.GetComponent<ChestBehavior>();
         }
 
-        if(other.gameObject.tag == "Chest" && Input.GetKeyDown(KeyCode.E))
+        if(other.gameObject.tag == "NextLevel")
         {
-            ChestBehavior chest = other.gameObject.GetComponent<ChestBehavior>();
-            if(chest != null)
-            {
-                chest.ChangeAnimation();
-            }
-        }
-
-        if (other.gameObject.tag == "NextLevel" && Input.GetKeyDown(KeyCode.E))
-        {
-            //OnLadderEnter.Invoke();
+            ladder = other.gameObject;
         }
     }
 
-    private bool CheckTabButton(bool isTab)
+    private void OnTriggerExit(Collider other)
     {
-        if (Input.GetKeyDown(KeyCode.Tab))
+        if(other.gameObject.tag == "Enemy")
         {
-            return !isTab;
+            closeEnemyBehavior = null;
         }
-        else
-        {
-            return isTab;
-        }
-    }
 
-    private bool CheckEscBatton(bool isEsc)
-    {
-        if(Input.GetKeyDown(KeyCode.Escape))
+        if(other.gameObject.tag == "Chest")
         {
-            return !isEsc;
+            closeChestBehavior = null;
         }
-        else
+
+        if(other.gameObject.tag == "NextLevel")
         {
-            return isEsc;
+            ladder = null;
         }
     }
 
@@ -172,6 +155,56 @@ public class MainCharacter : MonoBehaviour
         {
             firstPersonCamera.enabled = !firstPersonCamera.enabled;
             thirdPersonCamera.enabled = !thirdPersonCamera.enabled;
+        }
+    }
+
+    private void Hit()
+    {
+        if (closeEnemyBehavior != null && Input.GetMouseButtonDown(0) && !closeEnemyBehavior.isHit)
+        {
+            closeEnemyBehavior.ChangeToHitAnimation();
+            closeEnemyBehavior.GetHit(damage);
+        }
+    }
+
+    private void InteractWithObject()
+    {
+        if(closeChestBehavior != null && Input.GetKeyDown(KeyCode.E) && !closeChestBehavior.isOpened)
+        {
+            int index = closeChestBehavior.OpenChest();
+            GameObject intentory = GameObject.FindGameObjectWithTag("Inventory");
+            if (intentory != null)
+            {
+                Inventory inventoryBehavior = intentory.GetComponent<Inventory>();
+                inventoryBehavior.AddScroll(index);
+            }
+        }
+
+        if(ladder != null && Input.GetKeyDown(KeyCode.E))
+        {
+            DataHolder.sceneNumber++;
+            SceneManager.LoadScene(DataHolder.sceneNumber);
+        }
+    }
+
+    private void Defeate()
+    {
+        SceneManager.LoadScene(5);
+    }
+
+    private void LevelUp()
+    {
+        damage++;
+        currentLevel = DataHolder.mainCharacterLevel;
+    }
+
+    private void GetHit()
+    {
+        GameObject gameAspects = GameObject.FindGameObjectWithTag("GameAspects");
+        if (gameAspects != null)
+        {
+            GameAspects gameAspectsBehavior = gameAspects.GetComponent<GameAspects>();
+            gameAspectsBehavior.RemoveHeart();
         }
     }
 }

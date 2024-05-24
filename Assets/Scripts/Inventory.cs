@@ -5,15 +5,21 @@ using UnityEngine;
 public class Inventory : MonoBehaviour
 {
     [SerializeField] private GameObject background;
+    [SerializeField] private GameObject scrollBackground;
     [SerializeField] private GameObject lines;
     [SerializeField] private List<GameObject> potions;
+    [SerializeField] private List<GameObject> scrolls;
+    [SerializeField] private List<GameObject> scrollsText;
 
     private int numberOfCurrentPotion = 0;
+    private GameObject currentScrollText = null;
+
+    public bool isOpen = false;
 
     private void Start()
     {
-        background.SetActive(false);
-        lines.SetActive(false);
+        SetActiveFalse();
+        SetPotionsAndScrolls();
     }
 
     private void Update()
@@ -38,6 +44,7 @@ public class Inventory : MonoBehaviour
                 Cursor.lockState = CursorLockMode.Locked;
             }
             Cursor.visible = !isActive;
+            isOpen = !isOpen;
         }
     }
 
@@ -51,5 +58,58 @@ public class Inventory : MonoBehaviour
     {
         potions[numberOfCurrentPotion].SetActive(false);
         numberOfCurrentPotion--;
+    }
+
+    public void AddScroll(int index)
+    {
+        scrolls[index].SetActive(true);
+    }
+
+    private void SetPotionsAndScrolls()
+    {
+        for(int i = 0; i < DataHolder.countOfPotions; i++)
+        {
+            potions[i].SetActive(true);
+            numberOfCurrentPotion++;
+        }
+
+        for(int i = 0; i < 8; i++)
+        {
+            scrolls[i].SetActive(DataHolder.scrolls[i]);
+        }
+    }
+
+    private void SetActiveFalse()
+    {
+        background.SetActive(false);
+        lines.SetActive(false);
+        scrollBackground.SetActive(false);
+
+        for(int i = 0; i < scrollsText.Count; i++)
+        {
+            scrollsText[i].SetActive(false);
+        }
+    }
+
+    public void OpenScrollText(int numberOfScroll)
+    {
+        currentScrollText = scrollsText[numberOfScroll];
+
+        background.SetActive(false);
+        lines.SetActive(false);
+
+        scrollBackground.SetActive(true);
+        scrollsText[numberOfScroll].SetActive(true);
+    }
+
+    public void CloseScrollText()
+    {
+        currentScrollText.SetActive(false);
+        scrollBackground.SetActive(false);
+
+        background.SetActive(true);
+        lines.SetActive(true);
+
+        currentScrollText = null;
     }
 }

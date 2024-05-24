@@ -10,6 +10,7 @@ TagManager:
   - NextLevel
   - Inventory
   - GameAspects
+  - PauseMenu
   layers:
   - Default
   - TransparentFX

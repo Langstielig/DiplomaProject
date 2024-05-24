@@ -8,8 +8,8 @@ using UnityEngine;
 
 public class GeterateTunnelMap : MonoBehaviour
 {
-    public GameObject ground;
-    public GameObject wall;
+    [SerializeField] private GameObject ground;
+    [SerializeField] private GameObject wall;
 
     private void Start()
     {
@@ -19,31 +19,33 @@ public class GeterateTunnelMap : MonoBehaviour
         //CircleRoom circleRoom2 = new CircleRoom(3, 6, 9);
         //circleRoom2.DrawCircleRoom(ground, wall);
 
-        CircleRoom circleRoom1 = new CircleRoom(Random.Range(-1, 5), Random.Range(-1, 5), Random.Range(4, 8));
+        //CircleRoom circleRoom1 = new CircleRoom(Random.Range(-1, 5), Random.Range(-1, 5), Random.Range(4, 8));
         //circleRoom.DrawCircleRoom(ground, wall);
 
-        CircleRoom circleRoom2 = new CircleRoom(Random.Range(3, 8), Random.Range(3, 8), Random.Range(6, 10));
+        //CircleRoom circleRoom2 = new CircleRoom(Random.Range(3, 8), Random.Range(3, 8), Random.Range(6, 10));
         //circleRoom2.DrawCircleRoom(ground, wall);
 
-        RectangleRoom room1 = new RectangleRoom(0, 0, 15, 20);
+        //RectangleRoom room1 = new RectangleRoom(0, 0, 15, 20);
         //room.DrawRectangleRoom(ground, wall);
 
-        RectangleRoom room2 = new RectangleRoom(10, 10, 15, 15);
+        //RectangleRoom room2 = new RectangleRoom(10, 10, 15, 15);
 
         //CompositeRoom compositeRoom = new CompositeRoom(room1, room2);
         //compositeRoom.DrawCompositeRoom(ground, wall);
 
-        CompositeRoom compositecircleRoom = new CompositeRoom(circleRoom1, circleRoom2);
-        compositecircleRoom.DrawCompositeRoom(ground, wall);
+        //CompositeRoom compositecircleRoom = new CompositeRoom(circleRoom1, circleRoom2);
+        //compositecircleRoom.DrawCompositeRoom(ground, wall);
 
-        //GameObject emptyRooms = new GameObject("Rooms");
+        int numberOfRoom = 1;
+        GameObject emptyRooms = new GameObject("Rooms");
 
-        //TunnelMap map = new TunnelMap(0, 0, 50, 50);
-        //for(int i = 0; i < 10; i++)
+        TunnelMap map = new TunnelMap(0, 0, 50, 50);
+        map.GenerateRoom(numberOfRoom);
+        //for (int i = 0; i < 2; i++)
         //{
-        //    map.GenerateRectangleRoom();
+        //    map.GenerateRoom();
         //}
-        //map.DrawMap(ground, wall);
+        map.DrawMap(ground, wall);
     }
 
     class TunnelMap
@@ -54,7 +56,7 @@ public class GeterateTunnelMap : MonoBehaviour
         public int _width;
         public int _length;
 
-        public List<Room> _rooms;
+        public List<CompositeRoom> _rooms;
 
         private const int _minRoomSize = 6;
         private const int _maxRoomSize = 12;
@@ -78,49 +80,93 @@ public class GeterateTunnelMap : MonoBehaviour
             _width = width;
             _length = length;
 
-            _rooms = new List<Room>();
+            _rooms = new List<CompositeRoom>();
         }
 
-        public void GenerateRectangleRoom()
+        //public void GenerateRectangleRoom()
+        //{
+        //    bool flag = true;
+        //    RectangleRoom room = null;
+        //    while (flag)
+        //    {
+        //        int x0 = Random.Range(_x0, _x0 + _width);
+        //        int z0 = Random.Range(_z0, _z0 + _length);
+        //        int width = Random.Range(_minRoomSize, _maxRoomSize);
+        //        int length = Random.Range(_minRoomSize, _maxRoomSize);
+        //        room = new RectangleRoom(x0, z0, width, length);
+        //        bool isIntersect = false;
+        //        for(int i = 0; i < _rooms.Count && !isIntersect; i++)
+        //        {
+        //            if (room.IsRoomsIntersect(_rooms[i]))
+        //            {
+        //                isIntersect = true;
+        //            }
+        //        }
+        //        if(!isIntersect)
+        //        {
+        //            flag = false;
+        //        }
+        //        else
+        //        {
+        //            room.DestroyRoom();
+        //        }
+        //    }
+
+        //    if (room != null)
+        //    {
+        //        _rooms.Add(room);
+        //    }
+        //}
+
+        public void GenerateRoom(int numberOfRoom)
         {
             bool flag = true;
-            RectangleRoom room = null;
+            CircleRoom room1 = null;
+            CircleRoom room2 = null;
+            CompositeRoom compositeRoom = null;
             while (flag)
             {
                 int x0 = Random.Range(_x0, _x0 + _width);
                 int z0 = Random.Range(_z0, _z0 + _length);
-                int width = Random.Range(_minRoomSize, _maxRoomSize);
-                int length = Random.Range(_minRoomSize, _maxRoomSize);
-                room = new RectangleRoom(x0, z0, width, length);
+                int radius = Random.Range(_minRoomSize, _maxRoomSize);
+                //room = new RectangleRoom(x0, z0, width, length);
+                room1 = new CircleRoom(x0, z0, radius, numberOfRoom);
+
+                x0 = Random.Range(_x0, _x0 + _width);
+                z0 = Random.Range(_z0, _z0 + _length);
+                radius = Random.Range(_minRoomSize, _maxRoomSize);
+                room2 = new CircleRoom(x0, z0, radius, numberOfRoom + 1);
+
+                compositeRoom = new CompositeRoom(room1 , room2, numberOfRoom, numberOfRoom + 1);
                 bool isIntersect = false;
-                for(int i = 0; i < _rooms.Count && !isIntersect; i++)
+                for (int i = 0; i < _rooms.Count && !isIntersect; i++)
                 {
-                    if (room.IsRoomsIntersect(_rooms[i]))
+                    if (compositeRoom.isRoomIntersect(_rooms[i]))
                     {
                         isIntersect = true;
                     }
                 }
-                if(!isIntersect)
+                if (!isIntersect)
                 {
                     flag = false;
                 }
                 else
                 {
-                    room.DestroyRoom();
+                    compositeRoom.DestroyRooms();
                 }
             }
 
-            if (room != null)
+            if (compositeRoom != null)
             {
-                _rooms.Add(room);
+                _rooms.Add(compositeRoom);
             }
         }
 
         public void DrawMap(GameObject floor, GameObject wall)
         {
-            foreach(Room room in _rooms)
+            foreach(CompositeRoom room in _rooms)
             {
-                room.DrawRoom(floor, wall);
+                room.DrawCompositeRoom(floor, wall);
             }
         }
     }
@@ -132,7 +178,7 @@ public class GeterateTunnelMap : MonoBehaviour
 
         public const int height = 4;
 
-        protected GameObject emptyRoom;
+        public GameObject emptyRoom;
 
         public int index;
 
@@ -141,7 +187,7 @@ public class GeterateTunnelMap : MonoBehaviour
             x0 = 0;
             z0 = 0;
 
-            emptyRoom = new GameObject("Room");
+            //emptyRoom = new GameObject("Room");
         }
 
         public Room(int x0, int z0)
@@ -149,7 +195,7 @@ public class GeterateTunnelMap : MonoBehaviour
             this.x0 = x0;
             this.z0 = z0;
 
-            emptyRoom = new GameObject("Room");
+            //emptyRoom = new GameObject("Room");
         }
 
         public virtual bool IsDotInsideRoom(int x, int z)
@@ -182,7 +228,7 @@ public class GeterateTunnelMap : MonoBehaviour
             width = 0;
             length = 0;
 
-            emptyRoom = new GameObject("Room");
+            //emptyRoom = new GameObject("Room");
         }
 
         public RectangleRoom(int x0, int z0, int width, int length)
@@ -406,15 +452,17 @@ public class GeterateTunnelMap : MonoBehaviour
 
             radius = 0;
 
-            emptyRoom = new GameObject("Room");
+            //emptyRoom = new GameObject("Room");
         }
 
-        public CircleRoom(int x0, int z0, int radius)
+        public CircleRoom(int x0, int z0, int radius, int numberOfRoom)
         {
             this.x0 = x0;
             this.z0 = z0;
 
             this.radius = radius;
+
+            emptyRoom = new GameObject("Room" + numberOfRoom);
         }
 
         public override bool IsDotInsideRoom(int x, int z)
@@ -691,20 +739,39 @@ public class GeterateTunnelMap : MonoBehaviour
         {
             room1 = new Room();
             room2 = new Room();
-
-            emptyRoom = new GameObject("Room");
         }
 
-        public CompositeRoom(Room room1, Room room2)
+        public CompositeRoom(Room room1, Room room2, int index1, int index2)
         {
             this.room1 = room1;
             this.room2 = room2;
 
-            emptyRoom = new GameObject("Room");
+            emptyRoom = new GameObject("Room" + index1 + index2);
+        }
+
+        public bool isRoomIntersect(CompositeRoom room)
+        {
+            bool flag = false;
+            flag = room1.IsRoomsIntersect(room.room1);
+            if(!flag)
+            {
+                flag = room1.IsRoomsIntersect(room.room2);
+            }
+            if(!flag)
+            {
+                flag = room2.IsRoomsIntersect(room.room1);
+            }
+            if(!flag)
+            {
+                flag = room2.IsRoomsIntersect(room.room2);
+            }
+            return flag;
         }
 
         public void DrawCompositeRoom(GameObject floor, GameObject wall)
         {
+            room1.emptyRoom.transform.SetParent(emptyRoom.transform);
+            room2.emptyRoom.transform.SetParent(emptyRoom.transform);
             room1.DrawPartOfRoom(floor, wall, room2);
             room2.DrawPartOfRoom(floor, wall, room1);
         }

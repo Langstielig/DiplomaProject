@@ -14,7 +14,8 @@ public class EnemyBehavior : MonoBehaviour
     private Animator animator;
     private int health = 3;
 
-    private bool isHit = false;
+    public bool isHit = false;
+    private bool isDestroied = false;
 
     private void Start()
     {
@@ -24,23 +25,24 @@ public class EnemyBehavior : MonoBehaviour
 
     private void Update()
     {
-        if(health <= 0)
+        
+    }
+
+    private void FixedUpdate()
+    {
+        float distance = Vector3.Distance(mainCharacter.transform.position, transform.position);
+        if (health <= 0 && !isDestroied)
         {
             ChangeToDestroyAnimation();
             GameObject gameAspects = GameObject.FindGameObjectWithTag("GameAspects");
-            if(gameAspects != null)
+            if (gameAspects != null)
             {
                 GameAspects gameAspectsBehavior = gameAspects.GetComponent<GameAspects>();
                 gameAspectsBehavior.AddExperiencePoint();
             }
             Invoke("Destroy", 1);
         }
-    }
-
-    private void FixedUpdate()
-    {
-        float distance = Vector3.Distance(mainCharacter.transform.position, transform.position);
-        if (distance <= maxDistanceToMove && distance > maxDistanceToHit)
+        else if (distance <= maxDistanceToMove && distance > maxDistanceToHit)
         {
             ChangeToMoveAnimation();
             Move();
@@ -86,7 +88,7 @@ public class EnemyBehavior : MonoBehaviour
         animator.SetBool("isAttack", false);
         animator.SetBool("isHit", false);
         animator.SetBool("isDead", true);
-        isHit = true;
+        isDestroied = true;
     }
 
     private void SetIsHitFalse()

@@ -9,6 +9,8 @@ public class PauseMenuScript : MonoBehaviour
     [SerializeField] GameObject saveWindow;
     [SerializeField] GameObject loadWindow;
 
+    public bool isOpen = false;
+
     private void Start()
     {
         pauseMenu.SetActive(false);
@@ -43,6 +45,7 @@ public class PauseMenuScript : MonoBehaviour
             Cursor.visible = true;
         }
         pauseMenu.SetActive(!isActive);
+        isOpen = !isOpen;
     }
 
     public void ShowOrHideSaveWindow()
