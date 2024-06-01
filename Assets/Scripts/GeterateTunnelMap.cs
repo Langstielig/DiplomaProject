@@ -9,7 +9,9 @@ using UnityEngine;
 public class GeterateTunnelMap : MonoBehaviour
 {
     [SerializeField] private GameObject ground;
+    [SerializeField] private GameObject upperWall;
     [SerializeField] private GameObject wall;
+    [SerializeField] private GameObject lowerWall;
 
     private void Start()
     {
@@ -39,48 +41,49 @@ public class GeterateTunnelMap : MonoBehaviour
         int numberOfRoom = 1;
         GameObject emptyRooms = new GameObject("Rooms");
 
-        TunnelMap map = new TunnelMap(0, 0, 50, 50);
-        map.GenerateRoom(numberOfRoom);
+        TunnelMap map = new TunnelMap(0, 0, 100, 100);
+        map.GenerateFirstRoom(ref numberOfRoom, ref emptyRooms);
+        map.GenerateRoom(ref numberOfRoom, ref emptyRooms);
         //for (int i = 0; i < 2; i++)
         //{
         //    map.GenerateRoom();
         //}
-        map.DrawMap(ground, wall);
+        map.DrawMap(ground, lowerWall, wall, upperWall);
     }
 
     class TunnelMap
     {
-        public int _x0;
-        public int _z0;
+        public int x0;
+        public int z0;
 
-        public int _width;
-        public int _length;
+        public int width;
+        public int length;
 
-        public List<CompositeRoom> _rooms;
+        public List<CompositeRoom> rooms;
 
-        private const int _minRoomSize = 6;
-        private const int _maxRoomSize = 12;
+        private const int minRoomSize = 6;
+        private const int maxRoomSize = 12;
 
         public TunnelMap()
         {
-            _x0 = 0;
-            _z0 = 0;
+            x0 = 0;
+            z0 = 0;
 
-            _width = 0;
-            _length = 0;
+            width = 0;
+            length = 0;
 
-            _rooms = null;
+            rooms = null;
         }
 
-        public TunnelMap(int x0, int z0, int width, int length)
+        public TunnelMap(int _x0, int _z0, int _width, int _length)
         {
-            _x0 = x0;
-            _z0 = z0;
+            x0 = _x0;
+            z0 = _z0;
 
-            _width = width;
-            _length = length;
+            width = _width;
+            length = _length;
 
-            _rooms = new List<CompositeRoom>();
+            rooms = new List<CompositeRoom>();
         }
 
         //public void GenerateRectangleRoom()
@@ -118,30 +121,126 @@ public class GeterateTunnelMap : MonoBehaviour
         //    }
         //}
 
-        public void GenerateRoom(int numberOfRoom)
+        public (CircleRoom, CircleRoom) GetCompositeRooms(ref int numberOfRoom)
+        {
+            CircleRoom room1 = null;
+            CircleRoom room2 = null;
+            int roomX = Random.Range(x0, x0 + width);
+            int roomZ = Random.Range(z0, z0 + length);
+            int radius = Random.Range(minRoomSize, maxRoomSize);
+            room1 = new CircleRoom(roomX, roomZ, radius, numberOfRoom);
+            numberOfRoom++;
+
+            roomX = Random.Range(x0, x0 + width);
+            roomZ = Random.Range(z0, z0 + length);
+            radius = Random.Range(minRoomSize, maxRoomSize);
+            room2 = new CircleRoom(roomX, roomZ, radius, numberOfRoom);
+
+            bool isCompositeRoom = room1.IsRoomsIntersect(room2);
+            while (!isCompositeRoom)
+            {
+                room2.DestroyRoom();
+                roomX = Random.Range(x0, x0 + width);
+                roomZ = Random.Range(z0, z0 + length);
+                radius = Random.Range(minRoomSize, maxRoomSize);
+                room2 = new CircleRoom(roomX, roomZ, radius, numberOfRoom);
+                isCompositeRoom = room1.IsRoomsIntersect(room2);
+            }
+            numberOfRoom++;
+            return (room1, room2);
+        }
+
+        public void GenerateFirstRoom(ref int numberOfRoom, ref GameObject emptyRooms)
+        {
+            CircleRoom room1 = null;
+            CircleRoom room2 = null;
+
+            int radius = Random.Range(minRoomSize, maxRoomSize);
+            int centerX = (x0 + width) / 2;
+            int centerZ = (z0 + length) / 2;
+            int roomX = Random.Range(centerX - radius, centerX + radius);
+            int roomZ = Random.Range(centerZ - radius, centerZ + radius);
+            room1 = new CircleRoom(roomX, roomZ, radius, numberOfRoom);
+            numberOfRoom++;
+
+            roomX = Random.Range(x0, x0 + width);
+            roomZ = Random.Range(z0, z0 + length);
+            radius = Random.Range(minRoomSize, maxRoomSize);
+            room2 = new CircleRoom(roomX, roomZ, radius, numberOfRoom);
+
+            bool isCompositeRoom = room1.IsRoomsIntersect(room2);
+            while (!isCompositeRoom)
+            {
+                room2.DestroyRoom();
+                roomX = Random.Range(x0, x0 + width);
+                roomZ = Random.Range(z0, z0 + length);
+                radius = Random.Range(minRoomSize, maxRoomSize);
+                room2 = new CircleRoom(roomX, roomZ, radius, numberOfRoom);
+                isCompositeRoom = room1.IsRoomsIntersect(room2);
+            }
+            numberOfRoom++;
+
+            //(room1, room2) = GetCompositeRooms(ref numberOfRoom);
+
+            CompositeRoom compositeRoom = new CompositeRoom(room1, room2, numberOfRoom - 2, numberOfRoom - 1, ref emptyRooms);
+            rooms.Add(compositeRoom);
+        }
+
+        public void GenerateRoom(ref int numberOfRoom, ref GameObject emptyRooms)
+        {
+            int indexOfRoom = Random.Range(0, rooms.Count);
+            bool flag = true;
+            while(flag)
+            {
+                int side = Random.Range(0, 3);
+                int closeRoomX;
+                int closeRoomZ;
+                int factorX;
+                int factorZ;
+                if(side == 0)
+                {
+                    (closeRoomX, closeRoomZ) = rooms[indexOfRoom].GetMinZ();
+                    factorX = 1;
+                    factorZ = -1;
+                }
+                else if(side == 1)
+                {
+                    (closeRoomX, closeRoomZ) = rooms[indexOfRoom].GetMaxZ();
+                    factorX = 1;
+                    factorZ = 1;
+                }
+                else if(side == 2)
+                {
+                    (closeRoomX, closeRoomZ) = rooms[indexOfRoom].GetMinX();
+                    factorX = -1;
+                    factorZ = 1;
+                }
+                else if(side == 3)
+                {
+                    (closeRoomX, closeRoomZ) = rooms[indexOfRoom].GetMaxX();
+                    factorX = 1;
+                    factorZ = 1;
+                }
+
+            }
+        }
+
+        public void GenerateRandomRoom(ref int numberOfRoom, ref GameObject emptyRooms)
         {
             bool flag = true;
             CircleRoom room1 = null;
             CircleRoom room2 = null;
             CompositeRoom compositeRoom = null;
-            while (flag)
+            int countOfAttempts = 0;
+            while (flag && countOfAttempts < 5)
             {
-                int x0 = Random.Range(_x0, _x0 + _width);
-                int z0 = Random.Range(_z0, _z0 + _length);
-                int radius = Random.Range(_minRoomSize, _maxRoomSize);
-                //room = new RectangleRoom(x0, z0, width, length);
-                room1 = new CircleRoom(x0, z0, radius, numberOfRoom);
+                (room1, room2) = GetCompositeRooms(ref numberOfRoom);
 
-                x0 = Random.Range(_x0, _x0 + _width);
-                z0 = Random.Range(_z0, _z0 + _length);
-                radius = Random.Range(_minRoomSize, _maxRoomSize);
-                room2 = new CircleRoom(x0, z0, radius, numberOfRoom + 1);
-
-                compositeRoom = new CompositeRoom(room1 , room2, numberOfRoom, numberOfRoom + 1);
+                compositeRoom = new CompositeRoom(room1 , room2, numberOfRoom - 2, numberOfRoom - 1, ref emptyRooms);
                 bool isIntersect = false;
-                for (int i = 0; i < _rooms.Count && !isIntersect; i++)
+                for (int i = 0; i < rooms.Count && !isIntersect; i++)
                 {
-                    if (compositeRoom.isRoomIntersect(_rooms[i]))
+                    if (compositeRoom.isRoomIntersect(rooms[i]))
                     {
                         isIntersect = true;
                     }
@@ -153,20 +252,22 @@ public class GeterateTunnelMap : MonoBehaviour
                 else
                 {
                     compositeRoom.DestroyRooms();
+                    numberOfRoom -= 2;
                 }
+                countOfAttempts++;
             }
 
             if (compositeRoom != null)
             {
-                _rooms.Add(compositeRoom);
+                rooms.Add(compositeRoom);
             }
         }
 
-        public void DrawMap(GameObject floor, GameObject wall)
+        public void DrawMap(GameObject floor, GameObject lowerWall, GameObject wall, GameObject upperWall)
         {
-            foreach(CompositeRoom room in _rooms)
+            foreach(CompositeRoom room in rooms)
             {
-                room.DrawCompositeRoom(floor, wall);
+                room.DrawCompositeRoom(floor, lowerWall, wall, upperWall);
             }
         }
     }
@@ -176,7 +277,7 @@ public class GeterateTunnelMap : MonoBehaviour
         public int x0;
         public int z0;
 
-        public const int height = 4;
+        public const int height = 5;
 
         public GameObject emptyRoom;
 
@@ -205,11 +306,31 @@ public class GeterateTunnelMap : MonoBehaviour
 
         public virtual void DrawRoom(GameObject floor, GameObject wall) { }
 
-        public virtual void DrawPartOfRoom(GameObject floor, GameObject wall, Room room) { }
+        public virtual void DrawPartOfRoom(GameObject floor, GameObject lowerWall, GameObject wall, GameObject upperWall, Room room) { }
 
         public virtual bool IsRoomsIntersect(Room room)
         { 
-            return true; 
+            return true;
+        }
+
+        public virtual int GetMinX()
+        {
+            return 0;
+        }
+
+        public virtual int GetMaxX()
+        {
+            return 0;
+        }
+
+        public virtual int GetMinZ()
+        {
+            return 0;
+        }
+
+        public virtual int GetMaxZ()
+        {
+            return 0;
         }
 
         public virtual void DestroyRoom() { }
@@ -265,7 +386,7 @@ public class GeterateTunnelMap : MonoBehaviour
             WallDrawing(wall);
         }
 
-        public override void DrawPartOfRoom(GameObject floor, GameObject wall, Room room)
+        public override void DrawPartOfRoom(GameObject floor, GameObject lowerWall, GameObject wall, GameObject upperWall, Room room)
         {
             FloorDrawing(floor);
             CompositeWallDrawing(wall, room);
@@ -535,10 +656,10 @@ public class GeterateTunnelMap : MonoBehaviour
             WallDrawing(wall);
         }
 
-        public override void DrawPartOfRoom(GameObject floor, GameObject wall, Room room)
+        public override void DrawPartOfRoom(GameObject floor, GameObject lowerWall, GameObject wall, GameObject upperWall, Room room)
         {
             FloorDrawing(floor);
-            CompositeWallDrawing(wall, room);
+            CompositeWallDrawing(lowerWall, wall, upperWall, room);
         }
 
         private void FloorDrawing(GameObject floor)
@@ -546,7 +667,7 @@ public class GeterateTunnelMap : MonoBehaviour
             GameObject emptyFloor = new GameObject("Floor");
             emptyFloor.transform.SetParent(emptyRoom.transform);
 
-            int y0 = 0; //или -1
+            int y0 = -1;
             int currentX;
             int currentZ = z0;
             //int radiusSqrt = (int)Mathf.Sqrt(radius);
@@ -649,7 +770,7 @@ public class GeterateTunnelMap : MonoBehaviour
             }
         }
 
-        public void CompositeWallDrawing(GameObject wall, Room room)
+        public void CompositeWallDrawing(GameObject lowerWall, GameObject wall, GameObject upperWall, Room room)
         {
             GameObject emptyWall = new GameObject("Walls");
             emptyWall.transform.SetParent(emptyRoom.transform);
@@ -657,7 +778,6 @@ public class GeterateTunnelMap : MonoBehaviour
             int currentX;
             int currentZ = z0;
             int currentY;
-            int height = 4;
             //radiusSqrt = (int)Mathf.Sqrt(radius);
             int radiusSqrt = radius / 2;
             int counter = 1;
@@ -693,7 +813,19 @@ public class GeterateTunnelMap : MonoBehaviour
                         {
                             if (!room.IsDotInsideRoom(currentX, currentZ))
                             {
-                                GameObject currentWall = Instantiate(wall);
+                                GameObject currentWall;
+                                if (currentY == 0)
+                                {
+                                    currentWall = Instantiate(lowerWall);
+                                }
+                                else if (currentY == height - 1)
+                                {
+                                    currentWall = Instantiate(upperWall);
+                                }
+                                else
+                                {
+                                    currentWall = Instantiate(wall);
+                                }
                                 currentWall.transform.position = (new Vector3(currentX, currentY, currentZ));
                                 currentWall.transform.SetParent(emptyWall.transform);
                             }
@@ -705,13 +837,37 @@ public class GeterateTunnelMap : MonoBehaviour
                     {
                         if (!room.IsDotInsideRoom(currentX, currentZ))
                         {
-                            GameObject leftWall = Instantiate(wall);
+                            GameObject leftWall;
+                            if (currentY == 0)
+                            {
+                                leftWall = Instantiate(lowerWall);
+                            }
+                            else if (currentY == height - 1)
+                            {
+                                leftWall = Instantiate(upperWall);
+                            }
+                            else
+                            {
+                                leftWall = Instantiate(wall);
+                            }
                             leftWall.transform.position = (new Vector3(currentX, currentY, currentZ));
                             leftWall.transform.SetParent(emptyWall.transform);
                         }
                         if (!room.IsDotInsideRoom(currentX + width - 1, currentZ))
                         {
-                            GameObject rightWall = Instantiate(wall);
+                            GameObject rightWall;
+                            if (currentY == 0)
+                            {
+                                rightWall = Instantiate(lowerWall);
+                            }
+                            else if (currentY == height - 1)
+                            {
+                                rightWall = Instantiate(upperWall);
+                            }
+                            else
+                            {
+                                rightWall = Instantiate(wall);
+                            }
                             rightWall.transform.position = (new Vector3(currentX + width - 1, currentY, currentZ));
                             rightWall.transform.SetParent(emptyWall.transform);
                         }
@@ -720,6 +876,66 @@ public class GeterateTunnelMap : MonoBehaviour
                 }
                 currentZ++;
             }
+        }
+
+        public override bool IsRoomsIntersect(Room room)
+        {
+            int currentX;
+            int currentZ = z0;
+            //int radiusSqrt = (int)Mathf.Sqrt(radius);
+            int radiusSqrt = radius / 2;
+            int counter = 1;
+            int flag = 1;
+            int width;
+            bool isIntersect = false;
+            while (currentZ < (z0 + radius + 2 * radiusSqrt + 2) && !isIntersect)
+            {
+                currentX = x0;
+                if (currentZ == z0 || currentZ == (z0 + radius + 2 * radiusSqrt + 1))
+                {
+                    width = radius;
+                }
+                else if ((currentZ > z0 && currentZ <= (z0 + radiusSqrt)) || (currentZ < (z0 + radius + 2 * radiusSqrt + 1) && currentZ >= (z0 + radiusSqrt + radius)))
+                {
+                    width = radius + 2 * counter;
+                    currentX -= Mathf.Abs(counter);
+                    counter += flag;
+                }
+                else
+                {
+                    width = radius + 2 * radiusSqrt + 2;
+                    flag = -1;
+                    currentX = x0 - radiusSqrt - 1;
+                }
+                int x = currentX;
+                while (currentX < x + width && !isIntersect)
+                {
+                    isIntersect = room.IsDotInsideRoom(currentX, currentZ);
+                    currentX++;
+                }
+                currentZ++;
+            }
+            return isIntersect;
+        }
+
+        public override int GetMinX()
+        {
+            return x0 - radius / 2 - 1;
+        }
+
+        public override int GetMaxX()
+        {
+            return x0 + radius + radius / 2;
+        }
+
+        public override int GetMinZ()
+        {
+            return z0;
+        }
+
+        public override int GetMaxZ()
+        {
+            return z0 + radius + 2 * (radius / 2) + 1;
         }
 
         public override void DestroyRoom()
@@ -741,12 +957,13 @@ public class GeterateTunnelMap : MonoBehaviour
             room2 = new Room();
         }
 
-        public CompositeRoom(Room room1, Room room2, int index1, int index2)
+        public CompositeRoom(Room room1, Room room2, int index1, int index2, ref GameObject emptyRooms)
         {
             this.room1 = room1;
             this.room2 = room2;
 
             emptyRoom = new GameObject("Room" + index1 + index2);
+            emptyRoom.transform.SetParent(emptyRooms.transform);
         }
 
         public bool isRoomIntersect(CompositeRoom room)
@@ -768,12 +985,76 @@ public class GeterateTunnelMap : MonoBehaviour
             return flag;
         }
 
-        public void DrawCompositeRoom(GameObject floor, GameObject wall)
+        public void DrawCompositeRoom(GameObject floor, GameObject lowerWall, GameObject wall, GameObject upperWall)
         {
             room1.emptyRoom.transform.SetParent(emptyRoom.transform);
             room2.emptyRoom.transform.SetParent(emptyRoom.transform);
-            room1.DrawPartOfRoom(floor, wall, room2);
-            room2.DrawPartOfRoom(floor, wall, room1);
+            room1.DrawPartOfRoom(floor, lowerWall, wall, upperWall, room2);
+            room2.DrawPartOfRoom(floor, lowerWall, wall, upperWall, room1);
+        }
+
+        public (int, int) GetMinX()
+        {
+            int min1 = room1.GetMinX();
+            int min2 = room2.GetMinX();
+            if(min1 < min2)
+            {
+                int centerZ = (room1.GetMaxZ() - room1.GetMinZ()) / 2 + room1.GetMinZ();
+                return (centerZ, min1);
+            }
+            else
+            {
+                int centerZ = (room2.GetMaxZ() - room2.GetMinZ()) / 2 + room2.GetMinZ();
+                return (centerZ, min2);
+            }
+        }
+
+        public (int, int) GetMaxX()
+        {
+            int max1 = room1.GetMaxX();
+            int max2 = room2.GetMaxX();
+            if(max1 > max2)
+            {
+                int centerZ = (room1.GetMaxZ() - room1.GetMinZ()) / 2 + room1.GetMinZ();
+                return (max1, centerZ);
+            }
+            else
+            {
+                int centerZ = (room2.GetMaxZ() - room2.GetMinZ()) / 2 + room2.GetMinZ();
+                return (max2, centerZ);
+            }
+        }
+
+        public (int, int) GetMinZ()
+        {
+            int min1 = room1.GetMinZ();
+            int min2 = room2.GetMinZ();
+            if (min1 < min2)
+            {
+                int centerX = (room1.GetMaxX() - room1.GetMinX()) / 2 + room1.GetMinX();
+                return (centerX, min1);
+            }
+            else
+            {
+                int centerX = (room2.GetMaxX() - room2.GetMinX()) / 2 + room2.GetMinX();
+                return (centerX, min2);
+            }
+        }
+
+        public (int, int) GetMaxZ()
+        {
+            int max1 = room1.GetMaxZ();
+            int max2 = room2.GetMaxZ();
+            if (max1 > max2)
+            {
+                int centerX = (room1.GetMaxX() - room1.GetMinX()) / 2 + room1.GetMinX();
+                return (centerX, max1);
+            }
+            else
+            {
+                int centerX = (room2.GetMaxX() - room2.GetMinX()) / 2 + room2.GetMinX();
+                return (centerX, max2);
+            }
         }
 
         public void DestroyRooms()

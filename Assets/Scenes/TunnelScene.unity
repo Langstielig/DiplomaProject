@@ -220,8 +220,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 25b9dbc5c2555564fae97d8ca22b88c4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ground: {fileID: 6958221961168839512, guid: 27897ae1a66bf7e4186a2a2f7242c1bb, type: 3}
-  wall: {fileID: 2950755341971830466, guid: cbca6111643367047b795d0efef32e58, type: 3}
+  ground: {fileID: 251540376485940879, guid: a99a1725337a1544fa80dbb715461006, type: 3}
+  upperWall: {fileID: 7553894549967260907, guid: 0cfd8f7a4ad860b4cb9f1fdf4b560d7d, type: 3}
+  wall: {fileID: 1540997003589894784, guid: 40d6919c119a9254687c09e8b3d9fc25, type: 3}
+  lowerWall: {fileID: 4536240354277342233, guid: 7a6c73fa8a18bc94b9fd0453b6bdc8b3, type: 3}
 --- !u!1 &1837687007
 GameObject:
   m_ObjectHideFlags: 0
