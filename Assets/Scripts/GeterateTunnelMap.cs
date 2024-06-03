@@ -40,15 +40,51 @@ public class GeterateTunnelMap : MonoBehaviour
 
         int numberOfRoom = 1;
         GameObject emptyRooms = new GameObject("Rooms");
+        GameObject emptyHalls = new GameObject("Halls");
 
         TunnelMap map = new TunnelMap(0, 0, 100, 100);
         map.GenerateFirstRoom(ref numberOfRoom, ref emptyRooms);
-        map.GenerateRoom(ref numberOfRoom, ref emptyRooms);
-        //for (int i = 0; i < 2; i++)
-        //{
-        //    map.GenerateRoom();
-        //}
+        int countOfRooms = map.rooms.Count;
+        for (int i = 0; i < 5; i++)
+        {
+            map.GenerateRoom(ref numberOfRoom, ref emptyRooms);
+            if (map.rooms.Count > countOfRooms)
+            {
+                countOfRooms = map.rooms.Count;
+                map.GenerateHall(countOfRooms - 2, countOfRooms - 1, ground, ref emptyHalls);
+            }
+        }
         map.DrawMap(ground, lowerWall, wall, upperWall);
+    }
+
+    class Cell
+    {
+        public int x0;
+        public int z0;
+
+        public int movingCost;
+        public int heuristicApproximation;
+
+        public Cell()
+        {
+            x0 = 0;
+            z0 = 0;
+            movingCost = 0;
+            heuristicApproximation = 0;
+        }
+
+        public Cell(int x0, int z0, int movingCost, int heuristicApproximation)
+        {
+            this.x0 = x0;
+            this.z0 = z0;
+            this.movingCost = movingCost;
+            this.heuristicApproximation = heuristicApproximation;
+        }
+
+        public int GetSumCost()
+        {
+            return movingCost + heuristicApproximation;
+        }
     }
 
     class TunnelMap
@@ -63,6 +99,9 @@ public class GeterateTunnelMap : MonoBehaviour
 
         private const int minRoomSize = 6;
         private const int maxRoomSize = 12;
+
+        private const int floorCost = 5;
+        private const int wallCost = 10;
 
         public TunnelMap()
         {
@@ -188,15 +227,18 @@ public class GeterateTunnelMap : MonoBehaviour
 
         public void GenerateRoom(ref int numberOfRoom, ref GameObject emptyRooms)
         {
-            int indexOfRoom = Random.Range(0, rooms.Count);
             bool flag = true;
-            while(flag)
+            int countOfAttempts = 0;
+            CompositeRoom compositeRoom = null;
+
+            while (flag && countOfAttempts < 5)
             {
+                int indexOfRoom = Random.Range(0, rooms.Count);
                 int side = Random.Range(0, 3);
-                int closeRoomX;
-                int closeRoomZ;
-                int factorX;
-                int factorZ;
+                int closeRoomX = 0;
+                int closeRoomZ = 0;
+                int factorX = 0;
+                int factorZ = 0;
                 if(side == 0)
                 {
                     (closeRoomX, closeRoomZ) = rooms[indexOfRoom].GetMinZ();
@@ -222,7 +264,128 @@ public class GeterateTunnelMap : MonoBehaviour
                     factorZ = 1;
                 }
 
+                if (closeRoomX + 10 * factorX < x0 + width && closeRoomX + 10 * factorX > x0 &&
+                    closeRoomZ + 10 * factorZ < z0 + length && closeRoomZ + 10 * factorZ > z0)
+                {
+                    int radius = Random.Range(minRoomSize, maxRoomSize);
+                    int roomX = Random.Range(closeRoomX + 2 * factorX, closeRoomX + 10 * factorX);
+                    int roomZ = Random.Range(closeRoomZ + 2 * factorZ, closeRoomZ + 10 * factorZ);
+                    CircleRoom room1 = new CircleRoom(roomX, roomZ, radius, numberOfRoom);
+                    numberOfRoom++;
+
+                    roomX = Random.Range(x0, x0 + width);
+                    roomZ = Random.Range(z0, z0 + length);
+                    radius = Random.Range(minRoomSize, maxRoomSize);
+                    CircleRoom room2 = new CircleRoom(roomX, roomZ, radius, numberOfRoom);
+
+                    bool isCompositeRoom = room1.IsRoomsIntersect(room2);
+                    while (!isCompositeRoom)
+                    {
+                        room2.DestroyRoom();
+                        roomX = Random.Range(x0, x0 + width);
+                        roomZ = Random.Range(z0, z0 + length);
+                        radius = Random.Range(minRoomSize, maxRoomSize);
+                        room2 = new CircleRoom(roomX, roomZ, radius, numberOfRoom);
+                        isCompositeRoom = room1.IsRoomsIntersect(room2);
+                    }
+                    numberOfRoom++;
+
+                    compositeRoom = new CompositeRoom(room1, room2, numberOfRoom - 2, numberOfRoom - 1, ref emptyRooms);
+
+                    bool isIntersect = false;
+                    for (int i = 0; i < rooms.Count && !isIntersect; i++)
+                    {
+                        if (compositeRoom.isRoomIntersect(rooms[i]))
+                        {
+                            isIntersect = true;
+                        }
+                    }
+                    if (!isIntersect)
+                    {
+                        flag = false;
+                    }
+                    else
+                    {
+                        compositeRoom.DestroyRooms();
+                        compositeRoom = null;
+                        numberOfRoom -= 2;
+                    }
+                }
+                countOfAttempts++;
             }
+
+            if (compositeRoom != null)
+            {
+                rooms.Add(compositeRoom);
+            }
+        }
+
+        public void GenerateHall(int firstRoomIndex, int secondRoomIndex, GameObject floor, ref GameObject emptyHalls)
+        {
+            Room firstRoom;
+            Room secondRoom;
+            (firstRoom, secondRoom) = rooms[firstRoomIndex].GetCloserRoom(rooms[secondRoomIndex]);
+            Debug.Log("Hall between room " + firstRoom.index + " and " + secondRoom.index);
+
+            int xCenterFirstRoom = firstRoom.GetXCenterOfRoom();
+            int zCenterFirstRoom = firstRoom.GetZCenterOfRoom();
+            int xCenterSecondRoom = secondRoom.GetXCenterOfRoom();
+            int zCenterSecondRoom = secondRoom.GetZCenterOfRoom();
+            Vector2 finalCoordinate = new Vector2(xCenterSecondRoom, zCenterSecondRoom);
+            Cell firstCell = new Cell(xCenterFirstRoom, zCenterFirstRoom, 0, 0);
+
+            List<Cell> activeCells = new List<Cell>();
+            activeCells.Add(firstCell);
+            int index = 0;
+
+            while (activeCells[index].x0 != xCenterSecondRoom && activeCells[index].z0 != zCenterSecondRoom)
+            {
+                List<Cell> currentCells = new List<Cell>();
+                int xTerm = -1;
+                int zTerm = 0;
+                for (int i = 0; i < 4; i++)
+                {
+                    Vector2 coordinate = new Vector2(activeCells[index].x0 + xTerm, activeCells[index].z0 + zTerm);
+                    Cell cell = new Cell((int)coordinate.x, (int)coordinate.y,
+                                             activeCells[index].movingCost + floorCost, (int)Vector2.Distance(coordinate, finalCoordinate));
+                    currentCells.Add(cell);
+                    if (i == 0)
+                    {
+                        xTerm = 1;
+                    }
+                    else if (i == 1)
+                    {
+                        xTerm = 0;
+                        zTerm = -1;
+                    }
+                    else if(i == 2)
+                    {
+                        zTerm = 1;
+                    }
+                }
+                int nextIndex = 0;
+                for(int i = 1; i < currentCells.Count; i++)
+                {
+                    if (currentCells[i].GetSumCost() < currentCells[nextIndex].GetSumCost())
+                    {
+                        nextIndex = i;
+                    }
+                }
+                activeCells.Add(currentCells[nextIndex]);
+                index++;
+            }
+
+            Hall realHall = new Hall(firstRoom.index, secondRoom.index, ref emptyHalls);
+            for(int i = 0; i < activeCells.Count; i++)
+            {
+                if (!firstRoom.IsDotInsideRoom(activeCells[i].x0, activeCells[i].z0) && 
+                    !secondRoom.IsDotInsideRoom(activeCells[i].x0, activeCells[i].z0))
+                {
+                    realHall.AddCoordinate(activeCells[i].x0, activeCells[i].z0);
+                }
+            }
+            firstRoom.AddRealHall(realHall);
+            secondRoom.AddImaginaryHall(realHall);
         }
 
         public void GenerateRandomRoom(ref int numberOfRoom, ref GameObject emptyRooms)
@@ -272,6 +435,82 @@ public class GeterateTunnelMap : MonoBehaviour
         }
     }
 
+    class Hall
+    {
+        public List<Vector2> hallCoordinates;
+        public const int height = 5;
+        public GameObject emptyHall;
+
+        public Hall()
+        {
+            hallCoordinates = new List<Vector2>();
+        }
+
+        public Hall(int firstRoomIndex, int secondRoomIndex, ref GameObject emptyHalls)
+        {
+            hallCoordinates = new List<Vector2>();
+            emptyHall = new GameObject("Hall " + firstRoomIndex + secondRoomIndex);
+            emptyHall.transform.SetParent(emptyHalls.transform);
+        }
+
+        public void AddCoordinate(int x, int z)
+        {
+            Vector2 coordinate = new Vector2(x, z);
+            hallCoordinates.Add(coordinate);
+        }
+
+        public void DrawHall(GameObject floor, GameObject wall)
+        {
+            DrawGround(floor);
+        }
+
+        public void DrawGround(GameObject floor)
+        {
+            int yCoordinate = -1;
+            int xTerm;
+            int zTerm;
+            for (int i = 0; i < hallCoordinates.Count - 1; i++)
+            {
+                xTerm = 0;
+                zTerm = 0;
+                if (hallCoordinates[i].x - hallCoordinates[i + 1].x != 0)
+                {
+                    zTerm = 1;
+                }
+                else if (hallCoordinates[i].y - hallCoordinates[i + 1].y != 0)
+                {
+                    xTerm = 1;
+                }
+                for(int j = 0; j < 3; j++)
+                {
+                    GameObject currentGround = Instantiate(floor);
+                    currentGround.transform.position = new Vector3(hallCoordinates[i].x + xTerm * (j - 1), yCoordinate,
+                                                                   hallCoordinates[i].y + zTerm * (j - 1));
+                    currentGround.transform.SetParent(emptyHall.transform);
+                }
+            }
+
+            xTerm = 0;
+            zTerm = 0;
+            int lastIndex = hallCoordinates.Count - 1;
+            if (hallCoordinates[lastIndex].x - hallCoordinates[lastIndex - 1].x != 0)
+            {
+                zTerm = 1;
+            }
+            else if (hallCoordinates[lastIndex].y - hallCoordinates[lastIndex - 1].y != 0)
+            {
+                xTerm = 1;
+            }
+            for (int j = 0; j < 3; j++)
+            {
+                GameObject currentGround = Instantiate(floor);
+                currentGround.transform.position = new Vector3(hallCoordinates[lastIndex].x + xTerm * (j - 1), yCoordinate,
+                                                               hallCoordinates[lastIndex].y + zTerm * (j - 1));
+                currentGround.transform.SetParent(emptyHall.transform);
+            }
+        }
+    }
+
     class Room
     {
         public int x0;
@@ -282,6 +521,9 @@ public class GeterateTunnelMap : MonoBehaviour
         public GameObject emptyRoom;
 
         public int index;
+
+        public Hall realHall;
+        public Hall imaginaryHall;
 
         public Room()
         {
@@ -331,6 +573,26 @@ public class GeterateTunnelMap : MonoBehaviour
         public virtual int GetMaxZ()
         {
             return 0;
+        }
+
+        public virtual int GetXCenterOfRoom()
+        {
+            return 0;
+        }
+
+        public virtual int GetZCenterOfRoom()
+        {
+            return 0;
+        }
+
+        public virtual void AddRealHall(Hall hall)
+        {
+            realHall = hall;
+        }
+
+        public virtual void AddImaginaryHall(Hall hall)
+        {
+            imaginaryHall = hall;
         }
 
         public virtual void DestroyRoom() { }
@@ -582,8 +844,12 @@ public class GeterateTunnelMap : MonoBehaviour
             this.z0 = z0;
 
             this.radius = radius;
+            this.index = numberOfRoom;
 
             emptyRoom = new GameObject("Room" + numberOfRoom);
+
+            realHall = null;
+            imaginaryHall = null;
         }
 
         public override bool IsDotInsideRoom(int x, int z)
@@ -654,12 +920,20 @@ public class GeterateTunnelMap : MonoBehaviour
         {
             FloorDrawing(floor);
             WallDrawing(wall);
+            if(realHall != null)
+            {
+                realHall.DrawHall(floor, wall);
+            }
         }
 
         public override void DrawPartOfRoom(GameObject floor, GameObject lowerWall, GameObject wall, GameObject upperWall, Room room)
         {
             FloorDrawing(floor);
             CompositeWallDrawing(lowerWall, wall, upperWall, room);
+            if (realHall != null)
+            {
+                realHall.DrawHall(floor, wall);
+            }
         }
 
         private void FloorDrawing(GameObject floor)
@@ -748,21 +1022,33 @@ public class GeterateTunnelMap : MonoBehaviour
                         int x = currentX;
                         while (currentX < x + width)
                         {
-                            GameObject currentWall = Instantiate(wall);
-                            currentWall.transform.position = (new Vector3(currentX, currentY, currentZ));
-                            currentWall.transform.SetParent(emptyWall.transform);
+                            Vector2 coordinate = new Vector2(currentX, currentZ);
+                            if (realHall != null && !realHall.hallCoordinates.Contains(coordinate) || realHall == null)
+                            {
+                                GameObject currentWall = Instantiate(wall);
+                                currentWall.transform.position = (new Vector3(currentX, currentY, currentZ));
+                                currentWall.transform.SetParent(emptyWall.transform);
+                            }
                             currentX++;
                         }
                         currentX = x;
                     }
                     else
                     {
-                        GameObject leftWall = Instantiate(wall);
-                        leftWall.transform.position = (new Vector3(currentX, currentY, currentZ));
-                        leftWall.transform.SetParent(emptyWall.transform);
-                        GameObject rightWall = Instantiate(wall);
-                        rightWall.transform.position = (new Vector3(currentX + width - 1, currentY, currentZ));
-                        rightWall.transform.SetParent(emptyWall.transform);
+                        Vector2 coordinate = new Vector2(currentX, currentZ);
+                        if (realHall != null && !realHall.hallCoordinates.Contains(coordinate) || realHall == null)
+                        {
+                            GameObject leftWall = Instantiate(wall);
+                            leftWall.transform.position = (new Vector3(currentX, currentY, currentZ));
+                            leftWall.transform.SetParent(emptyWall.transform);
+                        }
+                        coordinate = new Vector2(currentX + width - 1, currentZ);
+                        if (realHall != null && !realHall.hallCoordinates.Contains(coordinate) || realHall == null)
+                        {
+                            GameObject rightWall = Instantiate(wall);
+                            rightWall.transform.position = (new Vector3(currentX + width - 1, currentY, currentZ));
+                            rightWall.transform.SetParent(emptyWall.transform);
+                        }
                     }
                     currentY++;
                 }
@@ -811,7 +1097,10 @@ public class GeterateTunnelMap : MonoBehaviour
                         int x = currentX;
                         while (currentX < x + width)
                         {
-                            if (!room.IsDotInsideRoom(currentX, currentZ))
+                            Vector2 coordinate = new Vector2(currentX, currentZ);
+                            if (!room.IsDotInsideRoom(currentX, currentZ) &&
+                                (realHall == null || realHall != null && !realHall.hallCoordinates.Contains(coordinate)) &&
+                                (imaginaryHall == null || imaginaryHall != null && !imaginaryHall.hallCoordinates.Contains(coordinate)))
                             {
                                 GameObject currentWall;
                                 if (currentY == 0)
@@ -835,7 +1124,10 @@ public class GeterateTunnelMap : MonoBehaviour
                     }
                     else
                     {
-                        if (!room.IsDotInsideRoom(currentX, currentZ))
+                        Vector2 coordinate = new Vector2(currentX, currentZ);
+                        if (!room.IsDotInsideRoom(currentX, currentZ) &&
+                            (realHall == null || realHall != null & !realHall.hallCoordinates.Contains(coordinate)) &&
+                            (imaginaryHall == null || imaginaryHall != null && !imaginaryHall.hallCoordinates.Contains(coordinate)))
                         {
                             GameObject leftWall;
                             if (currentY == 0)
@@ -853,7 +1145,10 @@ public class GeterateTunnelMap : MonoBehaviour
                             leftWall.transform.position = (new Vector3(currentX, currentY, currentZ));
                             leftWall.transform.SetParent(emptyWall.transform);
                         }
-                        if (!room.IsDotInsideRoom(currentX + width - 1, currentZ))
+                        coordinate = new Vector2(currentX + width - 1, currentZ);
+                        if (!room.IsDotInsideRoom(currentX + width - 1, currentZ) &&
+                            (realHall == null || realHall != null && !realHall.hallCoordinates.Contains(coordinate)) &&
+                            (imaginaryHall == null || imaginaryHall != null && !imaginaryHall.hallCoordinates.Contains(coordinate)))
                         {
                             GameObject rightWall;
                             if (currentY == 0)
@@ -936,6 +1231,28 @@ public class GeterateTunnelMap : MonoBehaviour
         public override int GetMaxZ()
         {
             return z0 + radius + 2 * (radius / 2) + 1;
+        }
+
+        public override int GetXCenterOfRoom()
+        {
+            int xCenter = (GetMaxX() - GetMinX()) / 2 + GetMinX();
+            return xCenter;
+        }
+
+        public override int GetZCenterOfRoom()
+        {
+            int zCenter = (GetMaxZ() - GetMinZ()) / 2 + GetMinZ();
+            return zCenter;
+        }
+
+        public override void AddRealHall(Hall hall)
+        {
+            base.AddRealHall(hall);
+        }
+
+        public override void AddImaginaryHall(Hall hall)
+        {
+            base.AddImaginaryHall(hall);
         }
 
         public override void DestroyRoom()
@@ -1055,6 +1372,51 @@ public class GeterateTunnelMap : MonoBehaviour
                 int centerX = (room2.GetMaxX() - room2.GetMinX()) / 2 + room2.GetMinX();
                 return (centerX, max2);
             }
+        }
+
+        public (Room, Room) GetCloserRoom(CompositeRoom secondRoom)
+        {
+            int xCenter1 = room1.GetXCenterOfRoom();
+            int zCenter1 = room1.GetZCenterOfRoom();
+            Vector2 center1 = new Vector2(xCenter1, zCenter1);
+
+            int xCenter2 = secondRoom.room1.GetXCenterOfRoom();
+            int zCenter2 = secondRoom.room1.GetZCenterOfRoom();
+            Vector2 center2 = new Vector2(xCenter2, zCenter2);
+
+            float distance = Vector2.Distance(center1, center2);
+            Room firstCircleRoom = room1;
+            Room secondCircleRoom = secondRoom.room1;
+
+            xCenter2 = secondRoom.room2.GetXCenterOfRoom();
+            zCenter2 = secondRoom.room2.GetZCenterOfRoom();
+            center2 = new Vector2(xCenter2, zCenter2);
+            if(Vector2.Distance(center1, center2) < distance)
+            {
+                distance = Vector2.Distance(center1, center2);
+                firstCircleRoom = room1;
+                secondCircleRoom = secondRoom.room2;
+            }
+
+            xCenter1 = room2.GetXCenterOfRoom();
+            zCenter1 = room2.GetZCenterOfRoom();
+            center1 = new Vector2(xCenter1, zCenter1);
+            if(Vector2.Distance(center1, center2) < distance)
+            {
+                distance = Vector2.Distance(center1, center2);
+                firstCircleRoom = room2;
+                secondCircleRoom = secondRoom.room2;
+            }
+
+            xCenter2 = secondRoom.room1.GetXCenterOfRoom();
+            zCenter2 = secondRoom.room1.GetZCenterOfRoom();
+            center2 = new Vector2(xCenter2, zCenter2);
+            if(Vector2.Distance(center1, center2) < distance)
+            {
+                firstCircleRoom = room2;
+                secondCircleRoom = secondRoom.room1;
+            }
+            return (firstCircleRoom, secondCircleRoom);
         }
 
         public void DestroyRooms()
